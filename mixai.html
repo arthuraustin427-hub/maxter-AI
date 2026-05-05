@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MixerAI — AI Mixing & Mastering</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --panel: #1a1a24;
+      --border: #2a2a3a;
+      --accent: #7c4dff;
+      --accent2: #00e5ff;
+      --green: #00e676;
+      --red: #ff1744;
+      --text: #e0e0f0;
+      --muted: #6b6b8a;
+      --knob: #252535;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1px;
+    }
+    .logo span { font-weight: 300; }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .header-right { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+
+    /* ── MAIN LAYOUT ── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 0;
+      padding: 20px;
+      gap: 16px;
+    }
+
+    /* ── UPLOAD ZONE ── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface);
+      position: relative;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(124,77,255,0.06);
+    }
+    .upload-zone.has-file {
+      border-style: solid;
+      border-color: var(--accent);
+      padding: 16px 32px;
+    }
+    .upload-icon { font-size: 40px; margin-bottom: 10px; }
+    .upload-zone h2 { font-size: 18px; margin-bottom: 6px; }
+    .upload-zone p { color: var(--muted); font-size: 14px; }
+    .upload-zone input[type=file] { display: none; }
+    .file-info { display: flex; align-items: center; gap: 12px; justify-content: center; }
+    .file-name { font-weight: 600; font-size: 15px; color: var(--accent2); }
+    .file-size { color: var(--muted); font-size: 13px; }
+
+    /* ── WAVEFORM ── */
+    .waveform-section {
+      background: var(--surface);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .waveform-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .waveform-title { font-weight: 600; color: var(--text); font-size: 14px; }
+    .transport { display: flex; gap: 8px; align-items: center; }
+    .btn-sm {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.15s;
+    }
+    .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-sm.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    #waveform-canvas {
+      width: 100%;
+      height: 120px;
+      display: block;
+      cursor: pointer;
+    }
+    .time-display { font-family: monospace; font-size: 13px; color: var(--accent2); }
+
+    /* ── STUDIO GRID ── */
+    .studio-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 220px;
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-header .badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .panel-body { padding: 16px; }
+
+    /* ── KNOB + SLIDER ── */
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .control-row:last-child { margin-bottom: 0; }
+    .control-label { font-size: 12px; color: var(--muted); min-width: 60px; }
+    .control-value { font-size: 12px; color: var(--accent2); min-width: 40px; text-align: right; font-family: monospace; }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      flex: 1;
+      height: 4px;
+      background: var(--knob);
+      border-radius: 2px;
+      outline: none;
+      margin: 0 10px;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+    input[type=range].accent2::-webkit-slider-thumb { background: var(--accent2); }
+    input[type=range].green::-webkit-slider-thumb { background: var(--green); }
+
+    /* EQ Bands */
+    .eq-bands {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      height: 120px;
+      padding: 8px 0;
+    }
+    .eq-band {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+    }
+    .eq-band label { font-size: 10px; color: var(--muted); }
+    .eq-band input[type=range] {
+      writing-mode: vertical-lr;
+      direction: rtl;
+      width: 4px;
+      height: 80px;
+      margin: 0;
+      padding: 0;
+    }
+    .eq-band .val { font-size: 10px; color: var(--accent2); font-family: monospace; }
+
+    /* Meters */
+    .meter-pair {
+      display: flex;
+      gap: 4px;
+      height: 100px;
+      align-items: flex-end;
+      margin-bottom: 8px;
+    }
+    .meter-bar {
+      flex: 1;
+      background: var(--knob);
+      border-radius: 3px;
+      position: relative;
+      overflow: hidden;
+    }
+    .meter-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      border-radius: 3px;
+      transition: height 0.08s;
+      background: linear-gradient(to top, var(--green) 0%, #ffeb3b 70%, var(--red) 90%);
+    }
+    .meter-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+
+    /* AI Panel */
+    .ai-panel .panel-body { display: flex; flex-direction: column; gap: 12px; }
+
+    .ai-mode-select {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      width: 100%;
+      cursor: pointer;
+      outline: none;
+    }
+    .ai-mode-select:focus { border-color: var(--accent); }
+
+    .btn-ai {
+      background: linear-gradient(135deg, var(--accent), #b24dff);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-ai:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,77,255,0.4); }
+    .btn-ai:active { transform: translateY(0); }
+    .btn-ai:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-ai .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .ai-status {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      min-height: 16px;
+    }
+    .ai-status.processing { color: var(--accent2); }
+    .ai-status.done { color: var(--green); }
+    .ai-status.error { color: var(--red); }
+
+    .preset-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .preset-tag {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: var(--muted);
+    }
+    .preset-tag:hover, .preset-tag.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(124,77,255,0.1);
+    }
+
+    /* ── BOTTOM BAR ── */
+    .bottom-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+    }
+    .btn-export {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--accent2);
+      padding: 10px 22px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-export:hover { border-color: var(--accent2); background: rgba(0,229,255,0.06); }
+    .btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .progress-wrap { flex: 1; }
+    .progress-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .progress-bar {
+      height: 6px;
+      background: var(--knob);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .backend-status {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .backend-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .backend-dot.online { background: var(--green); }
+    .backend-dot.offline { background: var(--red); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .studio-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 600px) {
+      .studio-grid { grid-template-columns: 1fr; }
+      main { padding: 10px; }
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 14px;
+      z-index: 999;
+      transform: translateY(60px);
+      opacity: 0;
+      transition: all 0.3s;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { border-color: var(--green); color: var(--green); }
+    .toast.error { border-color: var(--red); color: var(--red); }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Mixer<span>AI</span></div>
+  <div class="header-right">
+    <span class="status-dot"></span>
+    <span id="backendStatusText">Connecting…</span>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main>
+
+  <!-- UPLOAD -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept="audio/*" />
+    <div id="uploadPrompt">
+      <div class="upload-icon">🎵</div>
+      <h2>Drop your track here</h2>
+      <p>Supports MP3, WAV, FLAC, M4A, OGG — or <u style="cursor:pointer" onclick="document.getElementById('fileInput').click()">browse files</u></p>
+    </div>
+    <div id="fileInfo" class="file-info" style="display:none">
+      <span style="font-size:28px">🎧</span>
+      <div>
+        <div class="file-name" id="fileName"></div>
+        <div class="file-size" id="fileSize"></div>
+      </div>
+      <button class="btn-sm" onclick="clearFile()">✕ Remove</button>
+    </div>
+  </div>
+
+  <!-- WAVEFORM -->
+  <div class="waveform-section">
+    <div class="waveform-header">
+      <span class="waveform-title">Waveform</span>
+      <div class="transport">
+        <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+        <button class="btn-sm" id="btnPlay" onclick="togglePlay()">▶ Play</button>
+        <button class="btn-sm" onclick="stopAudio()">■ Stop</button>
+      </div>
+    </div>
+    <canvas id="waveform-canvas"></canvas>
+  </div>
+
+  <!-- STUDIO GRID -->
+  <div class="studio-grid">
+
+    <!-- EQ -->
+    <div class="panel">
+      <div class="panel-header">Equalizer <span class="badge">8-Band</span></div>
+      <div class="panel-body">
+        <div class="eq-bands" id="eqBands"></div>
+      </div>
+    </div>
+
+    <!-- DYNAMICS -->
+    <div class="panel">
+      <div class="panel-header">Dynamics</div>
+      <div class="panel-body" id="dynamicsPanel"></div>
+    </div>
+
+    <!-- SPACE -->
+    <div class="panel">
+      <div class="panel-header">Space & Tone</div>
+      <div class="panel-body" id="spacePanel"></div>
+    </div>
+
+    <!-- AI -->
+    <div class="panel ai-panel">
+      <div class="panel-header">AI Engine <span class="badge">✦ AI</span></div>
+      <div class="panel-body">
+        <select class="ai-mode-select" id="aiMode">
+          <option value="balanced">Balanced Mix</option>
+          <option value="vocal_forward">Vocal Forward</option>
+          <option value="bass_heavy">Bass Heavy</option>
+          <option value="broadcast">Broadcast Ready</option>
+          <option value="lo_fi">Lo-Fi Warm</option>
+          <option value="cinematic">Cinematic</option>
+          <option value="aggressive">Aggressive / Loud</option>
+        </select>
+        <div class="preset-tags" id="presetTags"></div>
+        <button class="btn-ai" id="btnAI" onclick="runAI()" disabled>
+          <span id="aiBtnText">✦ AI Mix & Master</span>
+          <div class="spinner" id="aiSpinner"></div>
+        </button>
+        <div class="ai-status" id="aiStatus">Load a track to begin</div>
+        <div style="border-top:1px solid var(--border);padding-top:10px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">VU METERS</div>
+          <div class="meter-pair" id="vuMeters">
+            <div class="meter-bar"><div class="meter-fill" id="vuL" style="height:0%"></div></div>
+            <div class="meter-bar"><div class="meter-fill" id="vuR" style="height:0%"></div></div>
+          </div>
+          <div class="meter-labels"><span>L</span><span>R</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar">
+    <button class="btn-export" id="btnExportWAV" onclick="exportWAV()" disabled>⬇ Export WAV</button>
+    <button class="btn-export" id="btnExportMP3" onclick="exportMP3()" disabled>⬇ Export MP3</button>
+    <div class="progress-wrap">
+      <div class="progress-label" id="progressLabel">No file loaded</div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="backend-status">
+      <div class="backend-dot" id="backendDot"></div>
+      <span id="backendLabel">Backend</span>
+    </div>
+  </div>
+
+</main>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──
+const BACKEND = 'http://localhost:8000';
+let audioCtx = null;
+let audioBuffer = null;
+let processedBuffer = null;
+let sourceNode = null;
+let isPlaying = false;
+let startTime = 0;
+let pauseOffset = 0;
+let animFrame = null;
+let vuInterval = null;
+let rawFile = null;
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded', () => {
+  buildEQ();
+  buildDynamics();
+  buildSpace();
+  buildPresets();
+  checkBackend();
+  setInterval(checkBackend, 8000);
+  setupUploadZone();
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+});
+
+// ── BACKEND CHECK ──
+async function checkBackend() {
+  try {
+    const r = await fetch(BACKEND + '/health', { signal: AbortSignal.timeout(3000) });
+    const ok = r.ok;
+    document.getElementById('backendDot').className = 'backend-dot ' + (ok ? 'online' : 'offline');
+    document.getElementById('backendLabel').textContent = ok ? 'Backend Online' : 'Backend Error';
+    document.getElementById('backendStatusText').textContent = ok ? 'AI Engine Ready' : 'Backend Offline';
+  } catch {
+    document.getElementById('backendDot').className = 'backend-dot offline';
+    document.getElementById('backendLabel').textContent = 'Backend Offline';
+    document.getElementById('backendStatusText').textContent = 'Backend Offline — run backend.py';
+  }
+}
+
+// ── EQ BUILD ──
+const EQ_BANDS = [
+  { label: '60', freq: 60 },
+  { label: '125', freq: 125 },
+  { label: '250', freq: 250 },
+  { label: '500', freq: 500 },
+  { label: '1k', freq: 1000 },
+  { label: '2k', freq: 2000 },
+  { label: '8k', freq: 8000 },
+  { label: '16k', freq: 16000 },
+];
+function buildEQ() {
+  const c = document.getElementById('eqBands');
+  EQ_BANDS.forEach((b, i) => {
+    const div = document.createElement('div');
+    div.className = 'eq-band';
+    div.innerHTML = `
+      <span class="val" id="eq-val-${i}">0</span>
+      <input type="range" class="accent2" min="-12" max="12" value="0"
+        oninput="document.getElementById('eq-val-${i}').textContent=this.value"
+        id="eq-${i}" style="writing-mode:vertical-lr;direction:rtl;width:4px;height:80px" />
+      <label>${b.label}</label>`;
+    c.appendChild(div);
+  });
+}
+
+// ── DYNAMICS BUILD ──
+function buildDynamics() {
+  const rows = [
+    { id: 'threshold', label: 'Threshold', min: -60, max: 0, val: -24, unit: 'dB', cls: '' },
+    { id: 'ratio', label: 'Ratio', min: 1, max: 20, val: 4, unit: ':1', cls: '' },
+    { id: 'attack', label: 'Attack', min: 0, max: 200, val: 10, unit: 'ms', cls: 'accent2' },
+    { id: 'release', label: 'Release', min: 10, max: 2000, val: 250, unit: 'ms', cls: 'accent2' },
+    { id: 'makeup', label: 'Makeup', min: 0, max: 24, val: 0, unit: 'dB', cls: 'green' },
+    { id: 'limiter', label: 'Limiter', min: -12, max: 0, val: -1, unit: 'dB', cls: 'green' },
+  ];
+  const c = document.getElementById('dynamicsPanel');
+  rows.forEach(r => {
+    c.innerHTML += `
+      <div class="control-row">
+        <span class="control-label">${r.label}</span>
+        <input type="range" class="${r.cls}" min="${r.min}" max="${r.max}" value="${r.val}"
+          id="dyn-${r.id}" oninput="document.getElementById('dyn-${r.id}-val').textContent=this.value+'${r.unit}'" />
+        <span class="control-value" id="dyn-${r.id}-val">${r.val}${r.unit}</span>
+      </div>`;
+  });
+}
+
+// ── SPACE BUILD ──
+function buildSpace() {
+  const rows = [
+    { id: 'reverb', label: 'Reverb', min: 0, max: 100, val: 15, unit: '%', cls: 'accent2' },
+    { id: 'delay', label: 'Delay', min: 0, max: 100, val: 0, unit: '%', cls: 'accent2' },
+    { id: 'width', label: 'Stereo W', min: 0, max: 200, val: 100, unit: '%', cls: '' },
+    { id: 'clarity', label: 'Clarity', min: 0, max: 100, val: 50, unit: '%', cls: '' },
+    { id: 'warmth', label: 'Warmth', min: 0, max: 100, val: 30, unit: '%', cls: 'green' },
+    { id: 'presence', label: 'Presence', min: 0, max: 100, val: 50, unit: '%', cls: 'green' },
+  ];
+  const c = document.getElementById('spacePanel');
+  rows.forEach(r => {
+    c.innerHTML += `
+      <div class="control-row">
+        <span class="control-label">${r.label}</span>
+        <input type="range" class="${r.cls}" min="${r.min}" max="${r.max}" value="${r.val}"
+          id="sp-${r.id}" oninput="document.getElementById('sp-${r.id}-val').textContent=this.value+'${r.unit}'" />
+        <span class="control-value" id="sp-${r.id}-val">${r.val}${r.unit}</span>
+      </div>`;
+  });
+}
+
+// ── PRESETS ──
+const PRESETS = ['Pop', 'Hip-Hop', 'EDM', 'Rock', 'Jazz', 'Classical', 'Podcast'];
+function buildPresets() {
+  const c = document.getElementById('presetTags');
+  PRESETS.forEach(p => {
+    const el = document.createElement('span');
+    el.className = 'preset-tag';
+    el.textContent = p;
+    el.onclick = () => {
+      document.querySelectorAll('.preset-tag').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      applyPreset(p);
+    };
+    c.appendChild(el);
+  });
+}
+function applyPreset(name) {
+  const presets = {
+    'Pop':       { threshold: -18, ratio: 4, reverb: 20, warmth: 40, presence: 70, aiMode: 'vocal_forward' },
+    'Hip-Hop':   { threshold: -20, ratio: 6, reverb: 25, warmth: 60, presence: 50, aiMode: 'bass_heavy' },
+    'EDM':       { threshold: -12, ratio: 8, reverb: 40, warmth: 20, presence: 80, aiMode: 'aggressive' },
+    'Rock':      { threshold: -16, ratio: 5, reverb: 15, warmth: 50, presence: 75, aiMode: 'aggressive' },
+    'Jazz':      { threshold: -24, ratio: 2, reverb: 35, warmth: 70, presence: 40, aiMode: 'balanced' },
+    'Classical': { threshold: -30, ratio: 2, reverb: 60, warmth: 50, presence: 30, aiMode: 'cinematic' },
+    'Podcast':   { threshold: -20, ratio: 5, reverb: 5,  warmth: 40, presence: 65, aiMode: 'broadcast' },
+  };
+  const p = presets[name];
+  if (!p) return;
+  if (p.threshold) setSlider('dyn-threshold', p.threshold, 'dB');
+  if (p.ratio) setSlider('dyn-ratio', p.ratio, ':1');
+  if (p.reverb !== undefined) setSlider('sp-reverb', p.reverb, '%');
+  if (p.warmth !== undefined) setSlider('sp-warmth', p.warmth, '%');
+  if (p.presence !== undefined) setSlider('sp-presence', p.presence, '%');
+  if (p.aiMode) document.getElementById('aiMode').value = p.aiMode;
+  showToast(`Preset: ${name}`, 'success');
+}
+function setSlider(id, val, unit) {
+  const el = document.getElementById(id);
+  if (el) { el.value = val; document.getElementById(id + '-val').textContent = val + unit; }
+}
+
+// ── UPLOAD ZONE ──
+function setupUploadZone() {
+  const zone = document.getElementById('uploadZone');
+  const inp = document.getElementById('fileInput');
+  zone.addEventListener('click', e => { if (e.target === zone || e.target.tagName === 'H2' || e.target.tagName === 'P') inp.click(); });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+  inp.addEventListener('change', () => { if (inp.files[0]) loadFile(inp.files[0]); });
+}
+
+function clearFile() {
+  stopAudio();
+  audioBuffer = null;
+  processedBuffer = null;
+  rawFile = null;
+  document.getElementById('uploadPrompt').style.display = '';
+  document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('uploadZone').classList.remove('has-file');
+  document.getElementById('btnAI').disabled = true;
+  document.getElementById('btnExportWAV').disabled = true;
+  document.getElementById('btnExportMP3').disabled = true;
+  document.getElementById('aiStatus').textContent = 'Load a track to begin';
+  document.getElementById('aiStatus').className = 'ai-status';
+  document.getElementById('progressLabel').textContent = 'No file loaded';
+  document.getElementById('progressFill').style.width = '0%';
+  drawBlankWaveform();
+}
+
+async function loadFile(file) {
+  rawFile = file;
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = formatBytes(file.size);
+  document.getElementById('uploadPrompt').style.display = 'none';
+  document.getElementById('fileInfo').style.display = 'flex';
+  document.getElementById('uploadZone').classList.add('has-file');
+  document.getElementById('progressLabel').textContent = 'Decoding audio…';
+
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  const arrayBuf = await file.arrayBuffer();
+  audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
+  processedBuffer = null;
+
+  drawWaveform(audioBuffer);
+  document.getElementById('btnAI').disabled = false;
+  document.getElementById('progressLabel').textContent = `Loaded: ${file.name}`;
+  updateTimeDisplay(0);
+  document.getElementById('aiStatus').textContent = 'Ready — choose a mode and click AI Mix';
+  document.getElementById('aiStatus').className = 'ai-status';
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+// ── WAVEFORM ──
+function resizeCanvas() {
+  const c = document.getElementById('waveform-canvas');
+  c.width = c.offsetWidth * window.devicePixelRatio;
+  c.height = c.offsetHeight * window.devicePixelRatio;
+  if (audioBuffer) drawWaveform(audioBuffer);
+  else drawBlankWaveform();
+}
+
+function drawBlankWaveform() {
+  const c = document.getElementById('waveform-canvas');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, c.height / 2);
+  ctx.lineTo(c.width, c.height / 2);
+  ctx.stroke();
+}
+
+function drawWaveform(buf, playhead = 0) {
+  const c = document.getElementById('waveform-canvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const data = buf.getChannelData(0);
+  const step = Math.ceil(data.length / W);
+  const mid = H / 2;
+
+  // background grid
+  ctx.strokeStyle = 'rgba(42,42,58,0.5)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += W/16) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+
+  // waveform
+  const playX = playhead > 0 ? (playhead / buf.duration) * W : 0;
+  for (let x = 0; x < W; x++) {
+    let max = 0;
+    for (let j = 0; j < step; j++) {
+      const idx = x * step + j;
+      if (idx < data.length) max = Math.max(max, Math.abs(data[idx]));
+    }
+    const h = max * mid * 0.95;
+    const progress = x / W;
+    const played = x < playX;
+    ctx.fillStyle = played
+      ? `rgba(0,229,255,0.85)`
+      : `rgba(124,77,255,0.6)`;
+    ctx.fillRect(x, mid - h, 1, h * 2);
+  }
+
+  // playhead
+  if (playX > 0) {
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(playX, 0);
+    ctx.lineTo(playX, H);
+    ctx.stroke();
+  }
+}
+
+// ── PLAYBACK ──
+function togglePlay() {
+  if (!audioBuffer) return;
+  isPlaying ? pauseAudio() : playAudio();
+}
+
+function playAudio() {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const buf = processedBuffer || audioBuffer;
+  sourceNode = audioCtx.createBufferSource();
+  sourceNode.buffer = buf;
+
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  sourceNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+  sourceNode.start(0, pauseOffset);
+  startTime = audioCtx.currentTime - pauseOffset;
+  isPlaying = true;
+  document.getElementById('btnPlay').textContent = '⏸ Pause';
+  sourceNode.onended = () => { if (isPlaying) stopAudio(); };
+
+  // animation
+  const dataArr = new Uint8Array(analyser.frequencyBinCount);
+  function animate() {
+    animFrame = requestAnimationFrame(animate);
+    analyser.getByteFrequencyData(dataArr);
+    const elapsed = audioCtx.currentTime - startTime;
+    if (audioBuffer) {
+      updateTimeDisplay(elapsed);
+      drawWaveform(processedBuffer || audioBuffer, Math.min(elapsed, audioBuffer.duration));
+    }
+    // VU meters
+    let sum = 0;
+    dataArr.forEach(v => sum += v);
+    const avg = sum / dataArr.length / 255;
+    const pct = Math.min(avg * 3 * 100, 100);
+    document.getElementById('vuL').style.height = (pct * (0.9 + Math.random()*0.1)) + '%';
+    document.getElementById('vuR').style.height = (pct * (0.85 + Math.random()*0.15)) + '%';
+  }
+  animate();
+}
+
+function pauseAudio() {
+  if (!sourceNode) return;
+  pauseOffset = audioCtx.currentTime - startTime;
+  sourceNode.stop();
+  isPlaying = false;
+  cancelAnimationFrame(animFrame);
+  document.getElementById('btnPlay').textContent = '▶ Play';
+}
+
+function stopAudio() {
+  if (sourceNode) { try { sourceNode.stop(); } catch {} }
+  isPlaying = false;
+  pauseOffset = 0;
+  cancelAnimationFrame(animFrame);
+  document.getElementById('btnPlay').textContent = '▶ Play';
+  document.getElementById('vuL').style.height = '0%';
+  document.getElementById('vuR').style.height = '0%';
+  if (audioBuffer) { drawWaveform(processedBuffer || audioBuffer, 0); updateTimeDisplay(0); }
+}
+
+function updateTimeDisplay(current) {
+  const dur = (processedBuffer || audioBuffer)?.duration || 0;
+  document.getElementById('timeDisplay').textContent = `${fmtTime(current)} / ${fmtTime(dur)}`;
+}
+function fmtTime(s) { return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
+
+// ── AI MIX ──
+async function runAI() {
+  if (!rawFile) return;
+  const btn = document.getElementById('btnAI');
+  const txt = document.getElementById('aiBtnText');
+  const spin = document.getElementById('aiSpinner');
+  const status = document.getElementById('aiStatus');
+
+  btn.disabled = true;
+  txt.style.display = 'none';
+  spin.style.display = 'block';
+  status.textContent = 'Analyzing audio…';
+  status.className = 'ai-status processing';
+  setProgress(10, 'Uploading to AI engine…');
+
+  try {
+    const params = gatherParams();
+    const form = new FormData();
+    form.append('file', rawFile);
+    form.append('settings', JSON.stringify(params));
+
+    setProgress(30, 'Processing with AI…');
+    status.textContent = 'Running AI mix & master…';
+
+    const resp = await fetch(`${BACKEND}/process`, { method: 'POST', body: form });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: 'Server error' }));
+      throw new Error(err.detail || 'Processing failed');
+    }
+
+    setProgress(80, 'Decoding result…');
+    status.textContent = 'Decoding processed audio…';
+
+    const blob = await resp.blob();
+    const arrayBuf = await blob.arrayBuffer();
+    const ctx = audioCtx || new AudioContext();
+    processedBuffer = await ctx.decodeAudioData(arrayBuf);
+
+    setProgress(100, 'Done! Ready to export.');
+    status.textContent = '✓ Mix complete! Press play or export.';
+    status.className = 'ai-status done';
+    drawWaveform(processedBuffer, 0);
+    document.getElementById('btnExportWAV').disabled = false;
+    document.getElementById('btnExportMP3').disabled = false;
+    showToast('AI mix complete!', 'success');
+  } catch (e) {
+    status.textContent = '✗ ' + e.message;
+    status.className = 'ai-status error';
+    setProgress(0, 'Processing failed');
+    showToast(e.message, 'error');
+    // fallback: process in browser
+    await browserFallback();
+  } finally {
+    btn.disabled = false;
+    txt.style.display = 'block';
+    spin.style.display = 'none';
+  }
+}
+
+async function browserFallback() {
+  // Client-side processing when backend is unavailable
+  if (!audioBuffer) return;
+  const status = document.getElementById('aiStatus');
+  status.textContent = '⚠ Backend offline — applying browser processing…';
+  status.className = 'ai-status processing';
+
+  const ctx = new OfflineAudioContext(
+    audioBuffer.numberOfChannels,
+    audioBuffer.length,
+    audioBuffer.sampleRate
+  );
+  const src = ctx.createBufferSource();
+  src.buffer = audioBuffer;
+
+  // EQ
+  const filters = EQ_BANDS.map((b, i) => {
+    const f = ctx.createBiquadFilter();
+    f.type = 'peaking';
+    f.frequency.value = b.freq;
+    f.gain.value = parseFloat(document.getElementById(`eq-${i}`).value);
+    f.Q.value = 1.5;
+    return f;
+  });
+  const compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.value = parseFloat(document.getElementById('dyn-threshold').value);
+  compressor.ratio.value = parseFloat(document.getElementById('dyn-ratio').value);
+  compressor.attack.value = parseFloat(document.getElementById('dyn-attack').value) / 1000;
+  compressor.release.value = parseFloat(document.getElementById('dyn-release').value) / 1000;
+  const gain = ctx.createGain();
+  gain.gain.value = Math.pow(10, parseFloat(document.getElementById('dyn-makeup').value) / 20);
+
+  let prev = src;
+  filters.forEach(f => { prev.connect(f); prev = f; });
+  prev.connect(compressor);
+  compressor.connect(gain);
+  gain.connect(ctx.destination);
+  src.start(0);
+  processedBuffer = await ctx.startRendering();
+
+  setProgress(100, 'Browser processing done.');
+  status.textContent = '✓ Browser mix applied (start backend for full AI).';
+  status.className = 'ai-status done';
+  drawWaveform(processedBuffer, 0);
+  document.getElementById('btnExportWAV').disabled = false;
+  document.getElementById('btnExportMP3').disabled = false;
+}
+
+function gatherParams() {
+  const eq = EQ_BANDS.map((_, i) => parseFloat(document.getElementById(`eq-${i}`).value));
+  return {
+    mode: document.getElementById('aiMode').value,
+    eq,
+    threshold: parseFloat(document.getElementById('dyn-threshold').value),
+    ratio: parseFloat(document.getElementById('dyn-ratio').value),
+    attack: parseFloat(document.getElementById('dyn-attack').value),
+    release: parseFloat(document.getElementById('dyn-release').value),
+    makeup: parseFloat(document.getElementById('dyn-makeup').value),
+    limiter: parseFloat(document.getElementById('dyn-limiter').value),
+    reverb: parseFloat(document.getElementById('sp-reverb').value),
+    width: parseFloat(document.getElementById('sp-width').value),
+    warmth: parseFloat(document.getElementById('sp-warmth').value),
+    presence: parseFloat(document.getElementById('sp-presence').value),
+  };
+}
+
+// ── EXPORT ──
+function exportWAV() {
+  const buf = processedBuffer || audioBuffer;
+  if (!buf) return;
+  const wav = audioBufferToWav(buf);
+  download(wav, 'mixerai_master.wav', 'audio/wav');
+  showToast('WAV exported!', 'success');
+}
+
+function exportMP3() {
+  showToast('MP3 export requires backend — exporting WAV instead.', 'success');
+  exportWAV();
+}
+
+function audioBufferToWav(buf) {
+  const numCh = buf.numberOfChannels;
+  const sr = buf.sampleRate;
+  const len = buf.length;
+  const ab = new ArrayBuffer(44 + len * numCh * 2);
+  const view = new DataView(ab);
+  const write = (s, o) => { for (let i=0;i<s.length;i++) view.setUint8(o+i, s.charCodeAt(i)); };
+  write('RIFF', 0); view.setUint32(4, 36+len*numCh*2, true);
+  write('WAVE', 8); write('fmt ', 12);
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, numCh, true); view.setUint32(24, sr, true);
+  view.setUint32(28, sr*numCh*2, true); view.setUint16(32, numCh*2, true);
+  view.setUint16(34, 16, true); write('data', 36);
+  view.setUint32(40, len*numCh*2, true);
+  let off = 44;
+  const interleaved = new Float32Array(len * numCh);
+  for (let ch = 0; ch < numCh; ch++) {
+    const chData = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) interleaved[i * numCh + ch] = chData[i];
+  }
+  for (let i = 0; i < interleaved.length; i++, off += 2) {
+    const s = Math.max(-1, Math.min(1, interleaved[i]));
+    view.setInt16(off, s < 0 ? s * 32768 : s * 32767, true);
+  }
+  return new Blob([ab], { type: 'audio/wav' });
+}
+
+function download(blob, name, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+
+// ── UTILS ──
+function setProgress(pct, label) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
